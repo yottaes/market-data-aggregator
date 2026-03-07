@@ -1,65 +1,35 @@
-use futures::{SinkExt, StreamExt};
-use serde::Deserialize;
-use tokio_tungstenite::connect_async;
-use tokio_tungstenite::tungstenite::Message;
+use market_data_aggregator::{
+    connector::{ExchangeConnector, bybit::BybitConnector},
+    model::order_book::{Cup, OrderBook},
+};
+use tokio::sync::{mpsc, watch};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let url = "wss://stream.bybit.com/v5/public/spot";
+    let (shutdown_sender, shutdown_receiver) = watch::channel(false);
+    let (tx, mut rx) = mpsc::channel::<OrderBook>(200);
 
-    // println!("connecting to {url}...");
-    let (mut ws, _) = connect_async(url).await?;
-    // println!("connected!");
+    let bybit = BybitConnector {};
 
-    // Subscribe to BTC/USDT order book (25 levels) and trades
-    let sub = r#"{"op":"subscribe","args":["orderbook.50.BTCUSDT","publicTrade.BTCUSDT"]}"#;
-    ws.send(Message::Text(sub.into())).await?;
+    let mut bybit_cup = Cup::new();
 
-    while let Some(msg) = ws.next().await {
-        match msg? {
-            Message::Text(text) => {
-                if let Ok(_data) = serde_json::from_slice::<OrderBook>(text.as_bytes()) {
-                    // println!("{:?}", data);
-                    continue;
-                };
+    tokio::spawn(bybit.run(vec!["BTCUSDT".to_string()], tx, shutdown_receiver));
 
-                println!("{}", text);
+    loop {
+        tokio::select! {
+            Some(order) = rx.recv() => {
+                bybit_cup.apply(order);
+                println!("bid={}, ask={}", bybit_cup.best_bid().unwrap().0, bybit_cup.best_ask().unwrap().0);
             }
-            Message::Ping(data) => {
-                ws.send(Message::Pong(data)).await?;
-            }
-            Message::Close(frame) => {
-                println!("connection closed: {frame:?}");
+            _ = tokio::signal::ctrl_c() => {
+                shutdown_sender.send(true)?;
+                println!("Sent Ctrl+C!\nExiting!");
                 break;
             }
-            _ => {}
         }
     }
 
     Ok(())
-}
-
-#[derive(Deserialize, Debug)]
-pub struct OrderBook {
-    pub topic: String,
-    pub ts: u64,
-    #[serde(rename = "type")]
-    pub order_type: String,
-    pub data: OrderBookData,
-    pub cts: u64,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct OrderBookData {
-    #[serde(rename = "s")]
-    pub symbol: String,
-    #[serde(rename = "b")]
-    pub bids: Vec<(String, String)>,
-    #[serde(rename = "a")]
-    pub asks: Vec<(String, String)>,
-    #[serde(rename = "u")]
-    pub update_id: u64,
-    pub seq: u64,
 }
 
 // fn parse_and_match(text: Utf8Bytes)
