@@ -1,6 +1,6 @@
 use market_data_aggregator::{
     connector::{ExchangeConnector, bybit::BybitConnector},
-    model::Cup,
+    model::cup::Cup,
 };
 use tokio::sync::{mpsc, watch};
 
