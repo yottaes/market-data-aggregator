@@ -1,7 +1,3 @@
-use tokio::sync::mpsc;
-
-use crate::model::order_book::OrderBook;
-
 pub mod bybit;
 
 #[allow(async_fn_in_trait)]
@@ -11,7 +7,16 @@ pub trait ExchangeConnector: Send + Sync + 'static {
     async fn run(
         self,
         symbols: Vec<String>,
-        sender: mpsc::Sender<OrderBook>,
+        sender: tokio::sync::mpsc::Sender<NormalizedUpdate>,
         shutdown: tokio::sync::watch::Receiver<bool>,
     ) -> Result<(), anyhow::Error>;
+}
+
+/// Normalized order book update sent through the channel
+pub struct NormalizedUpdate {
+    pub exchange: &'static str,
+    pub symbol: String,
+    pub is_snapshot: bool,
+    pub bids: Vec<(String, String)>,
+    pub asks: Vec<(String, String)>,
 }

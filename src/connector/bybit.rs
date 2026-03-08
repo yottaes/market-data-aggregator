@@ -1,5 +1,6 @@
-use crate::{connector::ExchangeConnector, model::order_book::OrderBook};
+use crate::connector::{ExchangeConnector, NormalizedUpdate};
 use futures::{SinkExt, StreamExt};
+use serde::Deserialize;
 use serde_json::json;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
@@ -13,7 +14,7 @@ impl ExchangeConnector for BybitConnector {
     async fn run(
         self,
         symbols: Vec<String>,
-        sender: tokio::sync::mpsc::Sender<OrderBook>,
+        sender: tokio::sync::mpsc::Sender<NormalizedUpdate>,
         mut shutdown: tokio::sync::watch::Receiver<bool>,
     ) -> Result<(), anyhow::Error> {
         let url = "wss://stream.bybit.com/v5/public/spot";
@@ -34,7 +35,14 @@ impl ExchangeConnector for BybitConnector {
                     match msg? {
                         Message::Text(text) => {
                             if let Ok(data) = serde_json::from_str::<OrderBook>(&text) {
-                                let _ = sender.send(data).await;
+                                let update = NormalizedUpdate {
+                                    exchange: "bybit",
+                                    symbol: data.data.symbol,
+                                    is_snapshot: data.order_type == "snapshot",
+                                    bids: data.data.bids,
+                                    asks: data.data.asks,
+                                };
+                                let _ = sender.send(update).await;
                             }
                         }
                         Message::Ping(data) => {
@@ -55,4 +63,22 @@ impl ExchangeConnector for BybitConnector {
 
         Ok(())
     }
+}
+
+// Bybit-specific deserialization structures (private)
+#[derive(Deserialize)]
+struct OrderBook {
+    #[serde(rename = "type")]
+    order_type: String,
+    data: OrderBookData,
+}
+
+#[derive(Deserialize)]
+struct OrderBookData {
+    #[serde(rename = "s")]
+    symbol: String,
+    #[serde(rename = "b")]
+    bids: Vec<(String, String)>,
+    #[serde(rename = "a")]
+    asks: Vec<(String, String)>,
 }

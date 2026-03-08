@@ -1,29 +1,31 @@
 use market_data_aggregator::{
     connector::{ExchangeConnector, bybit::BybitConnector},
-    model::order_book::{Cup, OrderBook},
+    model::Cup,
 };
 use tokio::sync::{mpsc, watch};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let (shutdown_sender, shutdown_receiver) = watch::channel(false);
-    let (tx, mut rx) = mpsc::channel::<OrderBook>(200);
+    let (tx, mut rx) = mpsc::channel(200);
 
     let bybit = BybitConnector {};
 
-    let mut bybit_cup = Cup::new();
+    let mut cup = Cup::new();
 
     tokio::spawn(bybit.run(vec!["BTCUSDT".to_string()], tx, shutdown_receiver));
 
     loop {
         tokio::select! {
-            Some(order) = rx.recv() => {
-                bybit_cup.apply(order);
-                println!("bid={}, ask={}", bybit_cup.best_bid().unwrap().0, bybit_cup.best_ask().unwrap().0);
+            Some(update) = rx.recv() => {
+                cup.apply_update(update.is_snapshot, update.bids, update.asks);
+                if let (Some(bid), Some(ask)) = (cup.best_bid(), cup.best_ask()) {
+                    println!("[{}] {} bid={}, ask={}", update.exchange, update.symbol, bid.0, ask.0);
+                }
             }
             _ = tokio::signal::ctrl_c() => {
                 shutdown_sender.send(true)?;
-                println!("Sent Ctrl+C!\nExiting!");
+                println!("Shutting down...");
                 break;
             }
         }
@@ -31,5 +33,3 @@ async fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
-
-// fn parse_and_match(text: Utf8Bytes)
