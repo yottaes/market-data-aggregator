@@ -1,6 +1,6 @@
 use market_data_aggregator::{
     connector::{ExchangeConnector, bybit::BybitConnector},
-    model::cup::Cup,
+    model::exchange_books::ExchangeBooks,
 };
 use tokio::sync::{mpsc, watch};
 
@@ -11,16 +11,25 @@ async fn main() -> anyhow::Result<()> {
 
     let bybit = BybitConnector {};
 
-    let mut cup = Cup::new();
+    let mut cup = ExchangeBooks::new();
 
-    tokio::spawn(bybit.run(vec!["BTCUSDT".to_string()], tx, shutdown_receiver));
+    tokio::spawn(bybit.run(
+        vec![
+            "BTCUSDT".to_string(),
+            "SOLUSDT".to_string(),
+            "ETHUSDT".to_string(),
+            "XRPUSDT".to_string(),
+        ],
+        tx,
+        shutdown_receiver,
+    ));
 
     loop {
         tokio::select! {
             Some(update) = rx.recv() => {
-                cup.apply_update(update.is_snapshot, update.bids, update.asks);
-                if let (Some(bid), Some(ask)) = (cup.best_bid(), cup.best_ask()) {
-                    println!("[{}] {} bid={}, ask={}", update.exchange, update.symbol, bid.0, ask.0);
+                let (exchange, symbol) = cup.apply_update(update);
+                if let (Some(bid), Some(ask)) = (cup.best_bid(&symbol), cup.best_ask(&symbol)) {
+                    println!("[{}] {} bid={}, ask={}", exchange, symbol, bid, ask);
                 }
             }
             _ = tokio::signal::ctrl_c() => {

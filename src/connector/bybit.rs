@@ -1,4 +1,4 @@
-use crate::{connector::ExchangeConnector, model::normalized_event::NormalizedUpdate};
+use crate::{connector::ExchangeConnector, model::normalized_update::NormalizedUpdate};
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
 use serde_json::json;

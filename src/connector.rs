@@ -1,4 +1,4 @@
-use crate::model::normalized_event::NormalizedUpdate;
+use crate::model::normalized_update::NormalizedUpdate;
 
 pub mod bybit;
 
