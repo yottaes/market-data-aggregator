@@ -27,7 +27,9 @@ async fn main() -> anyhow::Result<()> {
     loop {
         tokio::select! {
             Some(update) = rx.recv() => {
-                let (exchange, symbol) = cup.apply_update(update);
+                let exchange = update.exchange;
+                let symbol = update.symbol.clone();
+                cup.apply_update(update);
                 if let (Some(bid), Some(ask)) = (cup.best_bid(&symbol), cup.best_ask(&symbol)) {
                     println!("[{}] {} bid={}, ask={}", exchange, symbol, bid, ask);
                 }

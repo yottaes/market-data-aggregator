@@ -13,12 +13,9 @@ impl ExchangeBooks {
         }
     }
 
-    pub fn apply_update(&mut self, order: NormalizedUpdate) -> (&'static str, String) {
-        let exchange = order.exchange;
-        let symbol = order.symbol;
-        let cup = self.cups.entry(symbol.clone()).or_default();
+    pub fn apply_update(&mut self, order: NormalizedUpdate) {
+        let cup = self.cups.entry(order.symbol.clone()).or_default();
         cup.apply_update(order.is_snapshot, order.bids, order.asks);
-        (exchange, symbol)
     }
 
     pub fn best_bid(&self, symbol: &str) -> Option<String> {
