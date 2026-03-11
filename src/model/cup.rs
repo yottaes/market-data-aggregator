@@ -1,12 +1,12 @@
 use rust_decimal::Decimal;
 use std::{collections::BTreeMap, str::FromStr};
 
-pub struct Cup {
+pub struct Side {
     pub bids: BTreeMap<Decimal, Decimal>,
     pub asks: BTreeMap<Decimal, Decimal>,
 }
 
-impl Cup {
+impl Side {
     pub fn new() -> Self {
         Self {
             bids: BTreeMap::new(),
@@ -56,7 +56,7 @@ impl Cup {
     }
 }
 
-impl Default for Cup {
+impl Default for Side {
     fn default() -> Self {
         Self::new()
     }

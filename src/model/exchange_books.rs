@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use crate::model::{cup::Cup, normalized_update::NormalizedUpdate};
+use crate::model::{cup::Side, normalized_update::NormalizedUpdate};
 
 pub struct ExchangeBooks {
-    pub cups: HashMap<String, Cup>,
+    pub cups: HashMap<String, Side>,
 }
 
 impl ExchangeBooks {
